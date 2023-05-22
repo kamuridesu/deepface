@@ -1,4 +1,6 @@
 from flask import Blueprint, request
+from tempfile import NamedTemporaryFile
+from base64 import b64decode
 import service
 
 blueprint = Blueprint("routes", __name__)
@@ -80,21 +82,24 @@ def analyze():
     if input_args is None:
         return {"message": "empty input set passed"}
 
-    img_path = input_args.get("img_path")
-    if img_path is None:
-        return {"message": "you must pass img_path input"}
+    image = input_args.get("image")
+    if image is None:
+        return {"message": "you must pass image input"}
+    
+    with NamedTemporaryFile("wb") as file:
+        file.write(b64decode(image))
+        file.seek(0)
+        detector_backend = input_args.get("detector_backend", "opencv")
+        enforce_detection = input_args.get("enforce_detection", True)
+        align = input_args.get("align", True)
+        actions = input_args.get("actions", ["age", "gender", "emotion", "race"])
 
-    detector_backend = input_args.get("detector_backend", "opencv")
-    enforce_detection = input_args.get("enforce_detection", True)
-    align = input_args.get("align", True)
-    actions = input_args.get("actions", ["age", "gender", "emotion", "race"])
+        demographies = service.analyze(
+            img_path=file.name,
+            actions=actions,
+            detector_backend=detector_backend,
+            enforce_detection=enforce_detection,
+            align=align,
+        )
 
-    demographies = service.analyze(
-        img_path=img_path,
-        actions=actions,
-        detector_backend=detector_backend,
-        enforce_detection=enforce_detection,
-        align=align,
-    )
-
-    return demographies
+        return demographies
